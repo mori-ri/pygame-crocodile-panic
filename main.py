@@ -60,6 +60,10 @@ wani_speed = 1.5  # ワニの出現・消失速度
 wani_visible_time = 1.0  # ワニが見える時間
 wani_probability = 0.05  # ワニが出現する確率（フレームごと）
 
+# エフェクト設定
+hit_effects = []  # ヒットエフェクトのリスト
+effect_duration = 1.0  # エフェクトの表示時間（秒）
+
 # ゲームの状態
 STATE_TITLE = 0
 STATE_PLAYING = 1
@@ -110,7 +114,7 @@ def draw_hole(pos, is_active=False, progress=0):
 
 def update_wani():
     """ワニの状態を更新する"""
-    global active_holes
+    global active_holes, hit_effects
     
     # 新しいワニを出現させる可能性
     if len(active_holes) < 3 and random.random() < wani_probability:
@@ -145,10 +149,14 @@ def update_wani():
     # 消えたワニを削除
     for hole in holes_to_remove:
         del active_holes[hole]
+    
+    # ヒットエフェクトを更新（時間切れのものを削除）
+    hit_effects[:] = [effect for effect in hit_effects 
+                      if time.time() - effect['time'] < effect_duration]
 
 def check_hit(pos):
     """クリック位置がワニに当たったかチェック"""
-    global score, active_holes
+    global score, active_holes, hit_effects
     
     for hole, data in list(active_holes.items()):
         dx = pos[0] - hole[0]
@@ -158,6 +166,14 @@ def check_hit(pos):
         if distance <= hole_radius and data['state'] in [APPEARING, VISIBLE]:
             score += 1
             active_holes[hole]['state'] = DISAPPEARING
+            
+            # ヒットエフェクトを追加
+            hit_effects.append({
+                'pos': hole,
+                'time': time.time(),
+                'text': "イテッ!"
+            })
+            
             return True
     
     return False
@@ -192,6 +208,25 @@ def draw_game():
         else:
             draw_hole(hole)
     
+    # ヒットエフェクトを描画
+    for effect in hit_effects:
+        elapsed_time = time.time() - effect['time']
+        alpha = max(0, 1 - elapsed_time / effect_duration)  # フェードアウト効果
+        
+        # エフェクトが移動するように y座標を上に移動
+        y_offset = int(elapsed_time * 50)  # 時間に応じて上に移動
+        
+        # エフェクトテキストを描画
+        effect_surface = font.render(effect['text'], True, RED)
+        pos_x = effect['pos'][0] - effect_surface.get_width() // 2
+        pos_y = effect['pos'][1] - 50 - y_offset
+        
+        # 透明度を適用（簡易版：赤色の強度を調整）
+        color_intensity = int(255 * alpha)
+        effect_surface = font.render(effect['text'], True, (color_intensity, 0, 0))
+        
+        screen.blit(effect_surface, (pos_x, pos_y))
+    
     # 時間切れチェック
     if remaining <= 0:
         global game_state
@@ -221,6 +256,7 @@ while running:
                 score = 0
                 start_time = time.time()
                 active_holes = {}
+                hit_effects = []  # エフェクトをクリア
             
             elif game_state == STATE_PLAYING:
                 # プレイ中のクリック処理
@@ -229,6 +265,7 @@ while running:
             elif game_state == STATE_GAMEOVER:
                 # ゲームオーバーからタイトルに戻る
                 game_state = STATE_TITLE
+                hit_effects = []  # エフェクトをクリア
     
     # 状態に応じた更新と描画
     if game_state == STATE_TITLE:
