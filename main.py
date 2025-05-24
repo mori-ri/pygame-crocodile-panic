@@ -64,6 +64,11 @@ wani_probability = 0.05  # ワニが出現する確率（フレームごと）
 hit_effects = []  # ヒットエフェクトのリスト
 effect_duration = 1.0  # エフェクトの表示時間（秒）
 
+# マウス近接エフェクト設定
+mouse_effects = []  # マウス近接エフェクトのリスト
+mouse_effect_distance = 80  # マウスがこの距離以内に来たら反応
+mouse_effect_duration = 0.8  # エフェクトの表示時間（秒）
+
 # ゲームの状態
 STATE_TITLE = 0
 STATE_PLAYING = 1
@@ -154,6 +159,35 @@ def update_wani():
     hit_effects[:] = [effect for effect in hit_effects 
                       if time.time() - effect['time'] < effect_duration]
 
+def check_mouse_proximity():
+    """マウスがワニに近づいているかチェック"""
+    global mouse_effects
+    
+    mouse_pos = pygame.mouse.get_pos()
+    
+    for hole, data in active_holes.items():
+        if data['state'] in [APPEARING, VISIBLE]:
+            dx = mouse_pos[0] - hole[0]
+            dy = mouse_pos[1] - hole[1]
+            distance = (dx*dx + dy*dy) ** 0.5
+            
+            # マウスが近づいた場合、まだエフェクトが出ていなければ追加
+            if distance <= mouse_effect_distance:
+                # この穴に対して既にエフェクトが出ているかチェック
+                already_has_effect = any(effect['hole'] == hole for effect in mouse_effects)
+                
+                if not already_has_effect:
+                    mouse_effects.append({
+                        'hole': hole,
+                        'pos': hole,
+                        'time': time.time(),
+                        'text': "ヤダ！"
+                    })
+    
+    # マウス近接エフェクトを更新（時間切れのものを削除）
+    mouse_effects[:] = [effect for effect in mouse_effects 
+                        if time.time() - effect['time'] < mouse_effect_duration]
+
 def check_hit(pos):
     """クリック位置がワニに当たったかチェック"""
     global score, active_holes, hit_effects
@@ -227,6 +261,24 @@ def draw_game():
         
         screen.blit(effect_surface, (pos_x, pos_y))
     
+    # マウス近接エフェクトを描画
+    for effect in mouse_effects:
+        elapsed_time = time.time() - effect['time']
+        alpha = max(0, 1 - elapsed_time / mouse_effect_duration)  # フェードアウト効果
+        
+        # エフェクトが揺れるように左右に移動
+        x_shake = int(5 * alpha * (1 if random.random() < 0.5 else -1))
+        
+        # エフェクトテキストを描画
+        pos_x = effect['pos'][0] - font.get_height() // 2 + x_shake
+        pos_y = effect['pos'][1] - 80
+        
+        # 透明度を適用（黄色で表示）
+        color_intensity = int(255 * alpha)
+        effect_surface = font.render(effect['text'], True, (color_intensity, color_intensity, 0))
+        
+        screen.blit(effect_surface, (pos_x, pos_y))
+    
     # 時間切れチェック
     if remaining <= 0:
         global game_state
@@ -257,6 +309,7 @@ while running:
                 start_time = time.time()
                 active_holes = {}
                 hit_effects = []  # エフェクトをクリア
+                mouse_effects = []  # マウスエフェクトもクリア
             
             elif game_state == STATE_PLAYING:
                 # プレイ中のクリック処理
@@ -266,6 +319,7 @@ while running:
                 # ゲームオーバーからタイトルに戻る
                 game_state = STATE_TITLE
                 hit_effects = []  # エフェクトをクリア
+                mouse_effects = []  # マウスエフェクトもクリア
     
     # 状態に応じた更新と描画
     if game_state == STATE_TITLE:
@@ -273,6 +327,7 @@ while running:
     
     elif game_state == STATE_PLAYING:
         update_wani()
+        check_mouse_proximity()
         draw_game()
     
     elif game_state == STATE_GAMEOVER:
