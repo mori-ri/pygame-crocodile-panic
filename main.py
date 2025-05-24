@@ -11,6 +11,9 @@ WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("ワニワニパニック風ゲーム")
 
+# マウスカーソルをハンマーのデザインに変更
+pygame.mouse.set_cursor(pygame.cursors.broken_x)
+
 # 色の定義
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -199,7 +202,8 @@ def check_hit(pos):
         
         if distance <= hole_radius and data['state'] in [APPEARING, VISIBLE]:
             score += 1
-            active_holes[hole]['state'] = DISAPPEARING
+            # ワニをすぐに削除する
+            del active_holes[hole]
             
             # ヒットエフェクトを追加
             hit_effects.append({
