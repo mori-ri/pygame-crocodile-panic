@@ -19,7 +19,22 @@ RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 
 # フォント設定
-font = pygame.font.SysFont(None, 36)
+try:
+    # 日本語対応フォントを試す
+    font = pygame.font.Font("NotoSansCJK-Regular.ttc", 36)
+except:
+    try:
+        # macOSの日本語フォント
+        font = pygame.font.Font("/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc", 36)
+    except:
+        try:
+            # その他のシステムフォント
+            font = pygame.font.Font("/System/Library/Fonts/Arial Unicode MS.ttf", 36)
+        except:
+            # フォールバック
+            font = pygame.font.SysFont("Arial Unicode MS", 36)
+            if not font:
+                font = pygame.font.SysFont("hiragino sans", 36)
 
 # ゲーム変数
 score = 0
