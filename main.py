@@ -20,6 +20,7 @@ BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
+BROWN = (165, 42, 42)  # 穴の色
 
 # フォント設定
 try:
@@ -82,43 +83,32 @@ game_state = STATE_TITLE
 for pos in hole_positions:
     holes.append(pos)
 
+# 画像の読み込み
+crocodile_image = pygame.image.load('assets/Crocodile.png')
+crocodile_image = pygame.transform.scale(crocodile_image, (100, 100))  # サイズ調整
+
+hammer_image = pygame.image.load('assets/hammer.png')
+hammer_image = pygame.transform.scale(hammer_image, (80, 80))  # サイズ調整
+
+# ハンマーの描画位置
+hammer_pos = None
+
 # ゲームループ
 clock = pygame.time.Clock()
 running = True
 
+# ハンマーの回転状態
+hammer_angle = 0
+hammer_tilt_time = 0  # ハンマー傾きの終了時刻
+
 def draw_hole(pos, is_active=False, progress=0):
     """穴を描画する"""
-    pygame.draw.circle(screen, BLACK, pos, hole_radius)
     if is_active:
-        # ワニを描画（簡易版）
-        wani_height = int(hole_radius * 1.5 * progress)
-        if wani_height > 0:
-            # ワニの体（緑）
-            pygame.draw.rect(screen, GREEN, 
-                            (pos[0] - hole_radius//2, pos[1] - wani_height, 
-                             hole_radius, wani_height))
-            
-            # ワニの目（白と黒）
-            eye_size = max(5, int(hole_radius * 0.2 * progress))
-            pygame.draw.circle(screen, WHITE, 
-                              (pos[0] - hole_radius//4, pos[1] - wani_height + eye_size), 
-                              eye_size)
-            pygame.draw.circle(screen, WHITE, 
-                              (pos[0] + hole_radius//4, pos[1] - wani_height + eye_size), 
-                              eye_size)
-            
-            pygame.draw.circle(screen, BLACK, 
-                              (pos[0] - hole_radius//4, pos[1] - wani_height + eye_size), 
-                              eye_size//2)
-            pygame.draw.circle(screen, BLACK, 
-                              (pos[0] + hole_radius//4, pos[1] - wani_height + eye_size), 
-                              eye_size//2)
-            
-            # ワニの口（赤）
-            mouth_height = max(3, int(hole_radius * 0.3 * progress))
-            pygame.draw.rect(screen, RED, 
-                            (pos[0] - hole_radius//2, pos[1] - mouth_height, 
-                             hole_radius, mouth_height))
+        # ワニを描画
+        screen.blit(crocodile_image, (pos[0] - crocodile_image.get_width() // 2, pos[1] - crocodile_image.get_height() // 2))
+    else:
+        # 穴の描画（デフォルトのまま）
+        pygame.draw.circle(screen, BROWN, pos, hole_radius)
 
 def update_wani():
     """ワニの状態を更新する"""
@@ -301,11 +291,15 @@ def draw_gameover():
 
 # メインゲームループ
 while running:
+    mouse_pos = pygame.mouse.get_pos()  # マウスの現在位置を取得
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        
+
         if event.type == pygame.MOUSEBUTTONDOWN:
+            hammer_angle = 45  # クリック時にハンマーを45度傾ける
+            hammer_tilt_time = time.time() + 0.2  # 0.2秒後に戻す
             if game_state == STATE_TITLE:
                 # タイトル画面からゲーム開始
                 game_state = STATE_PLAYING
@@ -314,29 +308,40 @@ while running:
                 active_holes = {}
                 hit_effects = []  # エフェクトをクリア
                 mouse_effects = []  # マウスエフェクトもクリア
-            
+
             elif game_state == STATE_PLAYING:
                 # プレイ中のクリック処理
                 check_hit(event.pos)
-            
+
             elif game_state == STATE_GAMEOVER:
                 # ゲームオーバーからタイトルに戻る
                 game_state = STATE_TITLE
                 hit_effects = []  # エフェクトをクリア
                 mouse_effects = []  # マウスエフェクトもクリア
-    
+
+    # ハンマーの角度を0.2秒後に戻す
+    if hammer_angle != 0 and time.time() > hammer_tilt_time:
+        hammer_angle = 0
+
     # 状態に応じた更新と描画
     if game_state == STATE_TITLE:
         draw_title()
-    
+
     elif game_state == STATE_PLAYING:
         update_wani()
         check_mouse_proximity()
         draw_game()
-    
+
     elif game_state == STATE_GAMEOVER:
         draw_gameover()
-    
+
+    # ハンマーを描画（クリック時の回転を反映）
+    # ハンマーの右上寄りをカーソル中心に合わせる
+    rotated_hammer = pygame.transform.rotate(hammer_image, hammer_angle)
+    offset_x = int(rotated_hammer.get_width() * 0.25)
+    offset_y = int(rotated_hammer.get_height() * 0.25)
+    screen.blit(rotated_hammer, (mouse_pos[0] - offset_x, mouse_pos[1] - offset_y))
+
     pygame.display.flip()
     clock.tick(60)
 
